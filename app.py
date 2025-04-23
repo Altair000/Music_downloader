@@ -11,7 +11,7 @@ from threading import Thread
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'i802r4rl')
-socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*")
+socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", manage_session=True)
 DOWNLOAD_FOLDER = "downloads"
 app.config['UPLOAD_FOLDER'] = DOWNLOAD_FOLDER
 
@@ -19,8 +19,9 @@ app.config['UPLOAD_FOLDER'] = DOWNLOAD_FOLDER
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Diccionario para rastrear descargas
+# Diccionario para rastrear descargas y errores
 active_downloads = {}
+download_errors = {}
 
 # Crear base de datos
 def init_db():
@@ -63,6 +64,7 @@ def search():
         'quiet': True,
         'no_warnings': True,
         'extract_flat': True,
+        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
     }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         results = ydl.extract_info(f"ytsearch5:{query}", download=False)['entries']
@@ -83,7 +85,7 @@ def download():
         elif d['status'] == 'finished':
             emit('progress', {'percent': 100, 'download_id': download_id}, namespace='/download')
 
-    def download_song():
+    def download_song(download_id, url, quality):
         ydl_opts = {
             'format': 'bestaudio/best',
             'outtmpl': f'{DOWNLOAD_FOLDER}/%(title)s.%(ext)s',
@@ -94,6 +96,7 @@ def download():
             }],
             'progress_hooks': [progress_hook],
             'ffmpeg_location': '/usr/bin/ffmpeg',
+            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -113,11 +116,19 @@ def download():
             active_downloads.pop(download_id, None)
         except Exception as e:
             logger.error(f"Error en descarga {download_id}: {str(e)}")
-            emit('error', {'message': str(e), 'download_id': download_id}, namespace='/download')
+            download_errors[download_id] = str(e)  # Guardar el error
             active_downloads.pop(download_id, None)
 
     active_downloads[download_id] = {'video_id': video_id, 'quality': quality}
-    Thread(target=download_song).start()
+    Thread(target=download_song, args=(download_id, url, quality)).start()
+
+    # Manejar errores desde el cliente
+    @socketio.on('check_error', namespace='/download')
+    def check_error(data):
+        if data['download_id'] in download_errors:
+            emit('error', {'message': download_errors[data['download_id']], 'download_id': data['download_id']}, namespace='/download')
+            download_errors.pop(data['download_id'], None)
+
     return render_template('download.html', title="Descargando...", download_id=download_id)
 
 @app.route('/history')
