@@ -97,9 +97,7 @@ def download():
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                raw_filename = ydl.prepare_filename(info).replace_.
-
-System: .webm', '.mp3').replace('.m4a', '.mp3')
+                raw_filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
                 safe_filename = sanitize_filename(info['title'])
                 os.rename(raw_filename, os.path.join(DOWNLOAD_FOLDER, safe_filename))
             
