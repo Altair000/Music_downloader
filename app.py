@@ -10,7 +10,7 @@ import logging
 from threading import Thread
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'i802r4rl')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
 socketio = SocketIO(app, async_mode='eventlet', cors_allowed_origins="*", manage_session=True)
 DOWNLOAD_FOLDER = "downloads"
 app.config['UPLOAD_FOLDER'] = DOWNLOAD_FOLDER
@@ -64,12 +64,16 @@ def search():
         'quiet': True,
         'no_warnings': True,
         'extract_flat': True,
-        'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
+        'cookiefile': 'youtube_cookies.txt',  # Usar cookies para búsqueda
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        results = ydl.extract_info(f"ytsearch5:{query}", download=False)['entries']
-        songs = [{'title': r['title'], 'id': r['id'], 'url': r['url']} for r in results]
-    return render_template('results.html', songs=songs, query=query)
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            results = ydl.extract_info(f"ytsearch5:{query}", download=False)['entries']
+            songs = [{'title': r['title'], 'id': r['id'], 'url': r['url']} for r in results]
+        return render_template('results.html', songs=songs, query=query)
+    except Exception as e:
+        logger.error(f"Error en búsqueda: {str(e)}")
+        return jsonify({'error': 'Error en la búsqueda: ' + str(e)}), 500
 
 @app.route('/download', methods=['POST'])
 def download():
@@ -96,7 +100,7 @@ def download():
             }],
             'progress_hooks': [progress_hook],
             'ffmpeg_location': '/usr/bin/ffmpeg',
-            'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36 Edg/135.0.0.0',
+            'cookiefile': 'youtube_cookies.txt',  # Usar cookies para descarga
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -116,7 +120,7 @@ def download():
             active_downloads.pop(download_id, None)
         except Exception as e:
             logger.error(f"Error en descarga {download_id}: {str(e)}")
-            download_errors[download_id] = str(e)  # Guardar el error
+            download_errors[download_id] = str(e)
             active_downloads.pop(download_id, None)
 
     active_downloads[download_id] = {'video_id': video_id, 'quality': quality}
