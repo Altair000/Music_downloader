@@ -16,10 +16,10 @@ RUN mkdir -p /app/downloads
 
 # Configurar variables de entorno
 ENV FLASK_APP=app.py
-ENV PORT=8000
+ENV PORT=5000
 
 # Exponer puerto
-EXPOSE 8000
+EXPOSE 5000
 
 # Comando para producción
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:$PORT", "app:app"]
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:app"]
