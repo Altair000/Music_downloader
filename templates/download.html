@@ -19,6 +19,65 @@
         <a href="/" class="btn btn-primary mt-3">Volver</a>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
+    <script>
+        toastr.options = { timeOut: 5000, positionClass: 'toast-top-right' };
+        const downloadId = '{{ download_id }}';
+
+        function checkDownloadStatus() {
+            fetch(`/download_status/${downloadId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'downloading') {
+                        document.getElementById(`progress-bar-${downloadId}`).style.width = data.progress + '%';
+                    } else if (data.status === 'complete') {
+                        toastr.success('Descarga completa! La canción se está descargando...');
+                        window.location.href = `/get_file/${encodeURIComponent(data.filename)}`;
+                        setTimeout(() => window.location.href = '/', 3000);
+                    } else if (data.status === 'error') {
+                        toastr.error('Error: ' + data.message);
+                        setTimeout(() => window.location.href = '/', 3000);
+                    }
+                })
+                .catch(error => {
+                    toastr.error('Error al verificar el estado: ' + error.message);
+                    setTimeout(() => window.location.href = '/', 3000);
+                });
+        }
+
+        // Consultar el estado cada segundo
+        const checkInterval = setInterval(checkDownloadStatus, 1000);
+
+        // Detener el intervalo si el usuario abandona la página
+        window.addEventListener('unload', () => clearInterval(checkInterval));
+
+        document.querySelector('a[href="/"]').addEventListener('click', (e) => {
+            e.preventDefault();
+            window.location.href = '/';
+        });
+    </script>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Descargando</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>{{ title }}</h1>
+        <div class="download-progress" id="progress-{{ download_id }}">
+            <div class="progress">
+                <div id="progress-bar-{{ download_id }}" class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+            <p class="mt-2">Descargando canción...</p>
+        </div>
+        <a href="/" class="btn btn-primary mt-3">Volver</a>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.min.js"></script>
     <script>
