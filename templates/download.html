@@ -26,23 +26,34 @@
         const socket = io('/download');
         const downloadId = '{{ download_id }}';
 
-        socket.on('progress', (data) => {
-            if (data.download_id === downloadId) {
-                document.getElementById(`progress-bar-${data.download_id}`).style.width = data.percent + '%';
-            }
-        });
-        socket.on('download_complete', (data) => {
-            if (data.download_id === downloadId) {
-                toastr.success('Descarga completa! La canción se está descargando...');
-                window.location.href = '/get_file/' + encodeURIComponent(data.filename);
-                setTimeout(() => window.location.href = '/', 3000);
-            }
-        });
-        socket.on('error', (data) => {
-            if (data.download_id === downloadId) {
-                toastr.error('Error: ' + data.message);
-                setTimeout(() => window.location.href = '/', 3000);
-            }
+        socket.on('connect', () => {
+            // Verificar errores periódicamente
+            const errorCheckInterval = setInterval(() => {
+                socket.emit('check_error', { download_id: downloadId });
+            }, 1000);
+
+            socket.on('progress', (data) => {
+                if (data.download_id === downloadId) {
+                    document.getElementById(`progress-bar-${data.download_id}`).style.width = data.percent + '%';
+                }
+            });
+
+            socket.on('download_complete', (data) => {
+                if (data.download_id === downloadId) {
+                    clearInterval(errorCheckInterval);
+                    toastr.success('Descarga completa! La canción se está descargando...');
+                    window.location.href = '/get_file/' + encodeURIComponent(data.filename);
+                    setTimeout(() => window.location.href = '/', 3000);
+                }
+            });
+
+            socket.on('error', (data) => {
+                if (data.download_id === downloadId) {
+                    clearInterval(errorCheckInterval);
+                    toastr.error('Error: ' + data.message);
+                    setTimeout(() => window.location.href = '/', 3000);
+                }
+            });
         });
 
         document.querySelector('a[href="/"]').addEventListener('click', (e) => {
