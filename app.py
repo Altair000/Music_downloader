@@ -19,9 +19,10 @@ app.config['UPLOAD_FOLDER'] = DOWNLOAD_FOLDER
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Diccionario para rastrear descargas y errores
+# Diccionarios para rastrear descargas, errores y descargas completadas
 active_downloads = {}
 download_errors = {}
+completed_downloads = {}
 
 # Crear base de datos
 def init_db():
@@ -64,7 +65,7 @@ def search():
         'quiet': True,
         'no_warnings': True,
         'extract_flat': True,
-        'cookiefile': 'youtube_cookies.txt',  # Usar cookies para búsqueda
+        'cookiefile': 'youtube_cookies.txt',
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -100,7 +101,7 @@ def download():
             }],
             'progress_hooks': [progress_hook],
             'ffmpeg_location': '/usr/bin/ffmpeg',
-            'cookiefile': 'youtube_cookies.txt',  # Usar cookies para descarga
+            'cookiefile': 'youtube_cookies.txt',
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -116,7 +117,8 @@ def download():
             conn.commit()
             conn.close()
 
-            emit('download_complete', {'filename': safe_filename, 'download_id': download_id}, namespace='/download')
+            # Almacenar la descarga completada en lugar de emitir directamente
+            completed_downloads[download_id] = {'filename': safe_filename}
             active_downloads.pop(download_id, None)
         except Exception as e:
             logger.error(f"Error en descarga {download_id}: {str(e)}")
@@ -126,12 +128,21 @@ def download():
     active_downloads[download_id] = {'video_id': video_id, 'quality': quality}
     Thread(target=download_song, args=(download_id, url, quality)).start()
 
-    # Manejar errores desde el cliente
+    # Manejar errores y descargas completadas desde el cliente
     @socketio.on('check_error', namespace='/download')
     def check_error(data):
         if data['download_id'] in download_errors:
             emit('error', {'message': download_errors[data['download_id']], 'download_id': data['download_id']}, namespace='/download')
             download_errors.pop(data['download_id'], None)
+
+    @socketio.on('check_complete', namespace='/download')
+    def check_complete(data):
+        if data['download_id'] in completed_downloads:
+            emit('download_complete', {
+                'filename': completed_downloads[data['download_id']]['filename'],
+                'download_id': data['download_id']
+            }, namespace='/download')
+            completed_downloads.pop(data['download_id'], None)
 
     return render_template('download.html', title="Descargando...", download_id=download_id)
 
