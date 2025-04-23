@@ -27,9 +27,10 @@
         const downloadId = '{{ download_id }}';
 
         socket.on('connect', () => {
-            // Verificar errores periódicamente
-            const errorCheckInterval = setInterval(() => {
+            // Verificar errores y descargas completadas periódicamente
+            const checkInterval = setInterval(() => {
                 socket.emit('check_error', { download_id: downloadId });
+                socket.emit('check_complete', { download_id: downloadId });
             }, 1000);
 
             socket.on('progress', (data) => {
@@ -40,7 +41,7 @@
 
             socket.on('download_complete', (data) => {
                 if (data.download_id === downloadId) {
-                    clearInterval(errorCheckInterval);
+                    clearInterval(checkInterval);
                     toastr.success('Descarga completa! La canción se está descargando...');
                     window.location.href = '/get_file/' + encodeURIComponent(data.filename);
                     setTimeout(() => window.location.href = '/', 3000);
@@ -49,7 +50,7 @@
 
             socket.on('error', (data) => {
                 if (data.download_id === downloadId) {
-                    clearInterval(errorCheckInterval);
+                    clearInterval(checkInterval);
                     toastr.error('Error: ' + data.message);
                     setTimeout(() => window.location.href = '/', 3000);
                 }
