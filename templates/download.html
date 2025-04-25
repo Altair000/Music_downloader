@@ -37,10 +37,17 @@
                         console.log(`Actualizando progreso: ${data.progress}%`);
                         document.getElementById(`progress-bar-${downloadId}`).style.width = data.progress + '%';
                     } else if (data.status === 'complete') {
-                        console.log(`Descarga completa, redirigiendo a /get_file/${data.filename}`);
+                        console.log(`Descarga completa, iniciando descarga de ${data.filename}`);
                         clearInterval(checkInterval);
-                        alert('Descarga completa! La canción se está descargando...');
-                        window.location.href = `/get_file/${encodeURIComponent(data.filename)}`;
+                        // Crear un enlace para forzar la descarga
+                        const downloadLink = document.createElement('a');
+                        downloadLink.href = `/get_file/${encodeURIComponent(data.filename)}`;
+                        downloadLink.download = data.filename;
+                        document.body.appendChild(downloadLink);
+                        downloadLink.click();
+                        document.body.removeChild(downloadLink);
+                        // Mensaje para usuarios de iOS
+                        alert('Descarga completa! La canción debería descargarse automáticamente. En iPhone, revisa la aplicación Archivos o mantén presionado el archivo para guardarlo.');
                         setTimeout(() => window.location.href = '/', 3000);
                     } else if (data.status === 'error') {
                         console.log(`Error en descarga: ${data.message}`);
@@ -54,7 +61,6 @@
                 })
                 .catch(error => {
                     console.error('Error al verificar estado:', error);
-                    // Continuar polling en caso de 404 para dar tiempo al backend
                     if (error.message.includes('404')) {
                         console.log('Reintentando tras 404...');
                     } else {
