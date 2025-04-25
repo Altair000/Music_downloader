@@ -25,21 +25,39 @@
         const downloadId = '{{ download_id }}';
 
         function checkDownloadStatus() {
+            console.log(`Consultando estado para downloadId: ${downloadId}`);
             fetch(`/download_status/${downloadId}`)
-                .then(response => response.json())
+                .then(response => {
+                    console.log(`Respuesta HTTP: ${response.status}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP error ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log('Respuesta de /download_status:', data);
                     if (data.status === 'downloading') {
+                        console.log(`Actualizando progreso: ${data.progress}%`);
                         document.getElementById(`progress-bar-${downloadId}`).style.width = data.progress + '%';
                     } else if (data.status === 'complete') {
+                        console.log(`Descarga completa, redirigiendo a /get_file/${data.filename}`);
+                        clearInterval(checkInterval); // Detener el polling
                         toastr.success('Descarga completa! La canción se está descargando...');
                         window.location.href = `/get_file/${encodeURIComponent(data.filename)}`;
                         setTimeout(() => window.location.href = '/', 3000);
                     } else if (data.status === 'error') {
+                        console.log(`Error en descarga: ${data.message}`);
+                        clearInterval(checkInterval);
                         toastr.error('Error: ' + data.message);
                         setTimeout(() => window.location.href = '/', 3000);
+                    } else {
+                        console.log(`Estado desconocido: ${data.status}`);
+                        toastr.error('Estado desconocido: ' + JSON.stringify(data));
                     }
                 })
                 .catch(error => {
+                    console.error('Error al verificar estado:', error);
+                    clearInterval(checkInterval);
                     toastr.error('Error al verificar el estado: ' + error.message);
                     setTimeout(() => window.location.href = '/', 3000);
                 });
