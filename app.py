@@ -7,6 +7,8 @@ import uuid
 import re
 import logging
 from threading import Thread
+import zipfile
+import io
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
@@ -185,9 +187,19 @@ def history():
 def get_file(filename):
     file_path = os.path.join(DOWNLOAD_FOLDER, filename)
     if os.path.exists(file_path):
-        logger.info(f"Enviando archivo: {filename} con Content-Disposition: attachment")
-        response = make_response(send_file(file_path, mimetype='application/octet-stream'))
-        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        logger.info(f"Comprimiendo archivo: {filename} en ZIP")
+        # Crear un archivo ZIP en memoria
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.write(file_path, filename)  # Incluir el MP3 en el ZIP
+        zip_buffer.seek(0)
+        # Nombre del archivo ZIP
+        zip_filename = filename.rsplit('.', 1)[0] + '.zip'
+        logger.info(f"Enviando archivo ZIP: {zip_filename} con Content-Disposition: attachment")
+        # Enviar el archivo ZIP
+        response = make_response(zip_buffer.read())
+        response.headers['Content-Type'] = 'application/zip'
+        response.headers['Content-Disposition'] = f'attachment; filename="{zip_filename}"'
         return response
     logger.warning(f"Archivo no encontrado: {filename}")
     return jsonify({'error': 'Archivo no encontrado'}), 404
