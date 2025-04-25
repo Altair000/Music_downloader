@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, make_response
 import yt_dlp
 import sqlite3
 import os
@@ -185,8 +185,10 @@ def history():
 def get_file(filename):
     file_path = os.path.join(DOWNLOAD_FOLDER, filename)
     if os.path.exists(file_path):
-        logger.info(f"Enviando archivo: {filename}")
-        return send_file(file_path, as_attachment=True)
+        logger.info(f"Enviando archivo: {filename} con Content-Disposition: attachment")
+        response = make_response(send_file(file_path, mimetype='application/octet-stream'))
+        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
     logger.warning(f"Archivo no encontrado: {filename}")
     return jsonify({'error': 'Archivo no encontrado'}), 404
 
