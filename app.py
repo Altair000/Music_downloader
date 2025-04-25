@@ -9,7 +9,7 @@ import logging
 from threading import Thread
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'i802r4rl')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
 DOWNLOAD_FOLDER = "downloads"
 app.config['UPLOAD_FOLDER'] = DOWNLOAD_FOLDER
 
@@ -85,8 +85,10 @@ def download():
         if d['status'] == 'downloading':
             percent = d.get('downloaded_bytes', 0) / d.get('total_bytes', 1) * 100
             active_downloads[download_id]['progress'] = percent
+            logger.info(f"Progreso descarga {download_id}: {percent:.2f}%")
         elif d['status'] == 'finished':
             active_downloads[download_id]['progress'] = 100
+            logger.info(f"Descarga {download_id} finalizada en progress_hook")
 
     def download_song(download_id, url, quality):
         ydl_opts = {
@@ -100,14 +102,30 @@ def download():
             'progress_hooks': [progress_hook],
             'ffmpeg_location': '/usr/bin/ffmpeg',
             'cookiefile': 'youtube_cookies.txt',
+            'noplaylist': True,
+            'retries': 5,
+            'verbose': True,
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                logger.info(f"Iniciando descarga para {download_id}: {url}")
                 info = ydl.extract_info(url, download=True)
-                raw_filename = ydl.prepare_filename(info).replace('.webm', '.mp3').replace('.m4a', '.mp3')
+                raw_filename = ydl.prepare_filename(info)
+                logger.info(f"Archivo descargado: {raw_filename}")
+                # Verificar formato
+                if not raw_filename.endswith(('.webm', '.m4a', '.mp3')):
+                    raise ValueError(f"Formato no válido descargado: {raw_filename}")
+                # Renombrar archivo
                 safe_filename = sanitize_filename(info['title'])
-                os.rename(raw_filename, os.path.join(DOWNLOAD_FOLDER, safe_filename))
+                target_path = os.path.join(DOWNLOAD_FOLDER, safe_filename)
+                logger.info(f"Renombrando {raw_filename} a {target_path}")
+                os.rename(raw_filename, target_path)
+                # Verificar que el archivo existe
+                if not os.path.exists(target_path):
+                    raise FileNotFoundError(f"Archivo no encontrado tras renombrar: {target_path}")
             
+            # Guardar en base de datos
+            logger.info(f"Guardando en base de datos para {download_id}")
             conn = sqlite3.connect("database.db")
             c = conn.cursor()
             c.execute("INSERT INTO downloads (title, quality, timestamp) VALUES (?, ?, datetime('now'))", 
@@ -117,30 +135,37 @@ def download():
 
             # Almacenar el archivo completado
             completed_downloads[download_id] = {'filename': safe_filename}
+            logger.info(f"Descarga completada: {download_id}, archivo: {safe_filename}, almacenado en completed_downloads")
             active_downloads.pop(download_id, None)
-            logger.info(f"Descarga completada: {download_id}, archivo: {safe_filename}")
         except Exception as e:
             logger.error(f"Error en descarga {download_id}: {str(e)}")
             download_errors[download_id] = str(e)
             active_downloads.pop(download_id, None)
 
     active_downloads[download_id] = {'video_id': video_id, 'quality': quality, 'progress': 0}
+    logger.info(f"Iniciando hilo de descarga para {download_id}")
     Thread(target=download_song, args=(download_id, url, quality)).start()
 
     return render_template('download.html', title="Descargando...", download_id=download_id)
 
 @app.route('/download_status/<download_id>', methods=['GET'])
 def download_status(download_id):
+    logger.info(f"Consulta de estado para {download_id}")
     if download_id in download_errors:
         error = download_errors.pop(download_id)
+        logger.info(f"Estado error para {download_id}: {error}")
         return jsonify({'status': 'error', 'message': error})
     elif download_id in completed_downloads:
-        filename = completed_downloads.pop(download_id)['filename']
+        filename = completed_downloads[download_id]['filename']
+        logger.info(f"Estado completo para {download_id}: {filename}")
+        completed_downloads.pop(download_id, None)  # Limpiar para evitar consultas repetidas
         return jsonify({'status': 'complete', 'filename': filename})
     elif download_id in active_downloads:
         progress = active_downloads[download_id]['progress']
+        logger.info(f"Estado descargando para {download_id}: {progress}%")
         return jsonify({'status': 'downloading', 'progress': progress})
     else:
+        logger.warning(f"Descarga no encontrada: {download_id}")
         return jsonify({'status': 'error', 'message': 'Descarga no encontrada'}), 404
 
 @app.route('/history')
@@ -156,7 +181,9 @@ def history():
 def get_file(filename):
     file_path = os.path.join(DOWNLOAD_FOLDER, filename)
     if os.path.exists(file_path):
+        logger.info(f"Enviando archivo: {filename}")
         return send_file(file_path, as_attachment=True)
+    logger.warning(f"Archivo no encontrado: {filename}")
     return jsonify({'error': 'Archivo no encontrado'}), 404
 
 if __name__ == '__main__':
