@@ -110,17 +110,21 @@ def download():
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 logger.info(f"Iniciando descarga para {download_id}: {url}")
                 info = ydl.extract_info(url, download=True)
-                raw_filename = ydl.prepare_filename(info)
-                logger.info(f"Archivo descargado: {raw_filename}")
-                # Verificar formato
-                if not raw_filename.endswith(('.webm', '.m4a', '.mp3')):
-                    raise ValueError(f"Formato no válido descargado: {raw_filename}")
-                # Renombrar archivo
+                # El postprocesador crea el archivo .mp3
+                raw_filename = ydl.prepare_filename(info).rsplit('.', 1)[0] + '.mp3'
+                logger.info(f"Archivo MP3 generado: {raw_filename}")
+                # Verificar que el archivo exista
+                if not os.path.exists(raw_filename):
+                    raise FileNotFoundError(f"Archivo MP3 no encontrado: {raw_filename}")
+                # Renombrar al nombre sanitizado
                 safe_filename = sanitize_filename(info['title'])
                 target_path = os.path.join(DOWNLOAD_FOLDER, safe_filename)
                 logger.info(f"Renombrando {raw_filename} a {target_path}")
+                if os.path.exists(target_path):
+                    os.remove(target_path)  # Evitar conflictos
                 os.rename(raw_filename, target_path)
-                # Verificar que el archivo existe
+                logger.info(f"Archivo renombrado: {target_path}")
+                # Verificar archivo final
                 if not os.path.exists(target_path):
                     raise FileNotFoundError(f"Archivo no encontrado tras renombrar: {target_path}")
             
@@ -152,13 +156,13 @@ def download():
 def download_status(download_id):
     logger.info(f"Consulta de estado para {download_id}")
     if download_id in download_errors:
-        error = download_errors.pop(download_id)
+        error = download_errors[download_id]
         logger.info(f"Estado error para {download_id}: {error}")
         return jsonify({'status': 'error', 'message': error})
     elif download_id in completed_downloads:
         filename = completed_downloads[download_id]['filename']
         logger.info(f"Estado completo para {download_id}: {filename}")
-        completed_downloads.pop(download_id, None)  # Limpiar para evitar consultas repetidas
+        completed_downloads.pop(download_id, None)  # Limpiar
         return jsonify({'status': 'complete', 'filename': filename})
     elif download_id in active_downloads:
         progress = active_downloads[download_id]['progress']
