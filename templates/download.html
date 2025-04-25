@@ -42,12 +42,12 @@
                         // Crear un enlace para forzar la descarga
                         const downloadLink = document.createElement('a');
                         downloadLink.href = `/get_file/${encodeURIComponent(data.filename)}`;
-                        downloadLink.download = data.filename;
+                        downloadLink.download = data.filename.rsplit('.', 1)[0] + '.zip';
                         document.body.appendChild(downloadLink);
                         downloadLink.click();
                         document.body.removeChild(downloadLink);
                         // Mensaje para usuarios de iOS
-                        alert('Descarga completa! La canción debería descargarse automáticamente. En iPhone, revisa la aplicación Archivos o mantén presionado el archivo para guardarlo.');
+                        alert('Descarga completa! Se descargará un archivo ZIP. En iPhone, abre la aplicación Archivos, localiza el archivo ZIP, tócalo para descomprimirlo y encontrarás el MP3 dentro.');
                         setTimeout(() => window.location.href = '/', 3000);
                     } else if (data.status === 'error') {
                         console.log(`Error en descarga: ${data.message}`);
