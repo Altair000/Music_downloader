@@ -39,10 +39,17 @@
                     } else if (data.status === 'complete') {
                         console.log(`Descarga completa, iniciando descarga de ${data.filename}`);
                         clearInterval(checkInterval);
+                        // Validar data.filename
+                        if (!data.filename || typeof data.filename !== 'string' || !data.filename.endsWith('.mp3')) {
+                            console.error('Nombre de archivo inválido:', data.filename);
+                            alert('Error: Nombre de archivo inválido. Por favor, intenta de nuevo.');
+                            setTimeout(() => window.location.href = '/', 3000);
+                            return;
+                        }
                         // Crear un enlace para forzar la descarga
                         const downloadLink = document.createElement('a');
                         downloadLink.href = `/get_file/${encodeURIComponent(data.filename)}`;
-                        downloadLink.download = data.filename.rsplit('.', 1)[0] + '.zip';
+                        downloadLink.download = data.filename.replace('.mp3', '.zip');
                         document.body.appendChild(downloadLink);
                         downloadLink.click();
                         document.body.removeChild(downloadLink);
