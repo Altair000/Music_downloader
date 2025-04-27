@@ -1,3 +1,4 @@
 pyTelegramBotAPI==4.14.0
-yt-dlp==2025.03.31
+yt-dlp==2025.04.08
 gunicorn==23.0.0
+Flask==2.3.2
