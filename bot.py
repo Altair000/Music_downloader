@@ -178,7 +178,7 @@ def download_song(download_id, url, chat_id):
 
 # Configurar el bot con webhook
 def main():
-    webhook_url = os.environ.get('WEBHOOK_URL', 'https://your-koyeb-app.koyeb.app/webhook')
+    webhook_url = os.environ.get('WEBHOOK_URL', 'wily-shawnee-devsolutions-778f1ac3.koyeb.app/')
     port = int(os.environ.get('PORT', 8443))
     
     bot.remove_webhook()
