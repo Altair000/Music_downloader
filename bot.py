@@ -8,6 +8,7 @@ import telebot
 from telebot.types import InlineKeyboardButton, InlineKeyboardMarkup
 from threading import Thread
 import shutil
+from flask import Flask, request, Response
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -16,14 +17,15 @@ logger = logging.getLogger(__name__)
 # Configuración
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '7985588609:AAFCJckm9Qg2TGqVCVs9d36ZwvX9ue6ySw4')
 bot = telebot.TeleBot(TOKEN)
+app = Flask(__name__)
 DOWNLOAD_FOLDER = "downloads"
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
 # Configurar ffmpeg_location dinámicamente
 if os.name == 'nt':  # Windows
-    ffmpeg_location = shutil.which('ffmpeg') or 'ffmpeg'  # Busca ffmpeg en PATH
+    ffmpeg_location = shutil.which('ffmpeg') or 'ffmpeg'
 else:
-    ffmpeg_location = '/usr/bin/ffmpeg'  # Ruta en Koyeb/Docker
+    ffmpeg_location = '/usr/bin/ffmpeg'
 
 # Diccionarios para rastrear descargas
 active_downloads = {}
@@ -128,7 +130,7 @@ def download_song(download_id, url, chat_id):
         'noplaylist': True,
         'retries': 5,
         'verbose': True,
-        'format_sort': ['has_audio', 'ext:m4a,mp3'],  # Priorizar formatos de audio
+        'format_sort': ['has_audio', 'ext:m4a,mp3'],
     }
     
     try:
@@ -176,15 +178,25 @@ def download_song(download_id, url, chat_id):
         )
         active_downloads.pop(download_id, None)
 
+# Ruta para el webhook
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    if request.headers.get('content-type') == 'application/json':
+        json_string = request.get_data().decode('utf-8')
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+        return Response(status=200)
+    return Response(status=403)
+
 # Configurar el bot con webhook
 def main():
-    webhook_url = os.environ.get('WEBHOOK_URL', 'wily-shawnee-devsolutions-778f1ac3.koyeb.app/')
+    webhook_url = os.environ.get('WEBHOOK_URL', 'bloody-salaidh-devsolutions-02d7b0ea.koyeb.app/')
     port = int(os.environ.get('PORT', 8443))
     
     bot.remove_webhook()
     bot.set_webhook(url=webhook_url)
     
-    #bot.infinity_polling()
+    app.run(host='0.0.0.0', port=port)
 
 if __name__ == '__main__':
     main()
