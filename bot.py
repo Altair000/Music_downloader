@@ -190,7 +190,7 @@ def webhook():
 
 # Configurar el bot con webhook
 def main():
-    webhook_url = os.environ.get('WEBHOOK_URL', 'bloody-salaidh-devsolutions-02d7b0ea.koyeb.app/')
+    webhook_url = os.environ.get('WEBHOOK_URL', 'bloody-salaidh-devsolutions-02d7b0ea.koyeb.app/webhook')
     port = int(os.environ.get('PORT', 8443))
     
     bot.remove_webhook()
